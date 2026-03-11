@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tonnel Market</title>
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        body, html { 
+            width: 100%; height: 100%; background: #000; 
+            font-family: 'Inter', -apple-system, sans-serif; color: white; 
+            overflow-x: hidden; -webkit-tap-highlight-color: transparent;
+        }
+
+        /* СПЛЕШ-СКРИН (ЗАГРУЗКА) */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .splash-logo-container {
+            position: relative; width: 150px; height: 150px;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+        }
+        .splash-glow {
+            position: absolute; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,152,234,0.5) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(15px); animation: pulseGlow 2s infinite alternate;
+        }
+        .splash-logo { width: 110px; position: relative; z-index: 2; border-radius: 20px; }
+        @keyframes pulseGlow { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.1); } }
+        
+        .loader-bar-bg { width: 60%; height: 4px; background: #1c232d; border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+        .loader-bar-fill { width: 0%; height: 100%; background: #0098ea; animation: fillBar 2.5s forwards ease-in-out; }
+        @keyframes fillBar { to { width: 100%; } }
+        .splash-text { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+
+        /* ВЕРХНЯЯ ПАНЕЛЬ */
+        .header {
+            width: 100%; background: #12181f; padding: 12px 15px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .balance-box { background: #1c232d; padding: 8px 14px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+        .ton-icon-main { width: 22px; height: 22px; object-fit: contain; }
+        .math-btns { display: flex; gap: 8px; }
+        .m-btn { width: 36px; height: 36px; background: #0098ea; border: none; border-radius: 10px; color: white; font-size: 20px; font-weight: 700; cursor: pointer; }
+
+        /* ВЫБОР ВАЛЮТ (МОДАЛКА) */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 10000; align-items: center; justify-content: center;
+        }
+        .modal-body { background: #12181f; width: 85%; border-radius: 24px; padding: 25px; border: 1px solid rgba(255,255,255,0.1); }
+        .cur-row { 
+            background: #1c232d; padding: 15px; border-radius: 15px; margin-top: 10px;
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+        }
+        .cur-name { font-weight: 700; }
+        .cur-sub { font-size: 11px; color: #515966; }
+
+        /* КНОПКИ ТОРГОВЛИ */
+        .trade-area { display: flex; gap: 10px; padding: 12px 15px; background: #000; }
+        .t-btn { flex: 1; padding: 15px; border-radius: 15px; border: none; color: white; font-weight: 700; font-size: 16px; cursor: pointer; }
+
+        /* СТРАНИЦЫ */
+        .page { display: none; padding-bottom: 110px; }
+        .page-active { display: block; }
+
+        /* ВКЛАДКА: MY GIFT (Инвентарь) */
+        .gift-container { padding: 15px; }
+        .gift-tabs { display: flex; gap: 20px; font-size: 22px; font-weight: 800; margin-bottom: 30px; color: #515966; }
+        .gift-tabs .active { color: white; }
+        .empty-box { text-align: center; margin-top: 40px; }
+        .duck-img { width: 140px; margin-bottom: 20px; }
+        .empty-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+        .empty-sub { color: #515966; font-size: 14px; margin-bottom: 25px; line-height: 1.4; }
+        .gift-relayer { color: #0098ea; text-decoration: none; font-weight: 700; font-size: 16px; display: block; margin-top: 5px; }
+
+        /* ВКЛАДКА: MARKET */
+        .market-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 15px; }
+        .item-card { display: flex; flex-direction: column; width: 100%; cursor: pointer; }
+        .item-img { width: 100%; border-radius: 20px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .buy-price-btn {
+            background: #0098ea; color: white; border: none; padding: 12px; border-radius: 14px;
+            font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+
+        /* НИЖНЯЯ НАВИГАЦИЯ */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: #0d1218; border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: space-around; padding: 15px 0 35px 0; z-index: 1000;
+        }
+        .nav-btn { color: white; font-size: 13px; font-weight: 600; opacity: 0.4; cursor: pointer; border: none; background: none; }
+        .nav-btn.active { opacity: 1; color: #0098ea; }
+
+        #app-main { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <div class="splash-glow"></div>
+            <img src="https://i.postimg.cc/fyFHpNWG/Glav.png" class="splash-logo">
+        </div>
+        <div class="loader-bar-bg"><div class="loader-bar-fill"></div></div>
+        <div class="splash-text">Tonnel Market®</div>
+    </div>
+
+    <div id="currencyModal" class="modal-overlay" onclick="closeModal()">
+        <div class="modal-body" onclick="event.stopPropagation()">
+            <h2 style="margin-bottom: 15px; text-align: center;" id="modalTitle">Валюта</h2>
+            <div class="cur-row" onclick="selectCur('RUB')">
+                <div><div class="cur-name">Rub</div><div class="cur-sub">[₽]</div></div>
+                <span>➡️</span>
+            </div>
+            <div class="cur-row" onclick="selectCur('USDT')">
+                <div><div class="cur-name">USDT</div><div class="cur-sub">[Tether]</div></div>
+                <span>➡️</span>
+            </div>
+            <div class="cur-row" onclick="selectCur('Stars')">
+                <div><div class="cur-name">Stars</div><div class="cur-sub">[Telegram Stars]</div></div>
+                <span>➡️</span>
+            </div>
+            <div class="cur-row" onclick="selectCur('TON')">
+                <div><div class="cur-name">Ton</div><div class="cur-sub">[Blockchain Network]</div></div>
+                <span>➡️</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-main">
+        <div class="header">
+            <div class="balance-box">
+                <img src="https://i.postimg.cc/ry1cXxB3/lv-0-20260311223402.png" class="ton-icon-main">
+                <span>0</span>
+            </div>
+            <div class="math-btns">
+                <button class="m-btn" onclick="openModal('Пополнить')">+</button>
+                <button class="m-btn" onclick="openModal('Вывести')">−</button>
+            </div>
+            <div id="ton-connect-btn"></div>
+        </div>
+
+        <div class="trade-area">
+            <button class="t-btn" style="background:#28a745;" onclick="openModal('Купить через')">Купить</button>
+            <button class="t-btn" style="background:#dc3545;" onclick="openModal('Продать за')">Продать</button>
+        </div>
+
+        <div id="page-market" class="page page-active">
+            <div class="market-grid">
+                <div class="item-card" onclick="alert('Оплата...')">
+                    <img src="https://i.postimg.cc/BbK0X1bj/Screenshot_20260311_222836_Gallery.jpg" class="item-img">
+                    <button class="buy-price-btn">4.537 <img src="https://i.postimg.cc/ry1cXxB3/lv-0-20260311223402.png" style="width:16px;"></button>
+                </div>
+                <div class="item-card" onclick="alert('Оплата...')">
+                    <img src="https://i.postimg.cc/PJwjP8J5/Screenshot_20260311_222839_Gallery.jpg" class="item-img">
+                    <button class="buy-price-btn">15.752 <img src="https://i.postimg.cc/ry1cXxB3/lv-0-20260311223402.png" style="width:16px;"></button>
+                </div>
+                <div class="item-card" onclick="alert('Оплата...')">
+                    <img src="https://i.postimg.cc/RhHBNnhN/Screenshot_20260311_222841_Gallery.jpg" class="item-img">
+                    <button class="buy-price-btn">5.3 <img src="https://i.postimg.cc/ry1cXxB3/lv-0-20260311223402.png" style="width:16px;"></button>
+                </div>
+                <div class="item-card" onclick="alert('Оплата...')">
+                    <img src="https://i.postimg.cc/Y0WHhm09/Screenshot_20260311_222843_Gallery.jpg" class="item-img">
+                    <button class="buy-price-btn">6.572 <img src="https://i.postimg.cc/ry1cXxB3/lv-0-20260311223402.png" style="width:16px;"></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-gift" class="page gift-container">
+            <div class="gift-tabs">
+                <span class="active">Гифты</span>
+                <span>Офферы</span>
+                <span>История</span>
+            </div>
+            <div class="empty-box">
+                <img src="https://i.postimg.cc/K8tp7mhw/Nig.png" class="duck-img">
+                <div class="empty-title">Если подарков нет</div>
+                <div class="empty-sub">Купите их на маркетплейсе</div>
+                <div style="font-size: 14px;">
+                    Want to sell your Gift? Transfer it<br>
+                    <a href="https://t.me/GiftRelayerTonnel" class="gift-relayer">@GiftRelayerTonnel</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <button class="nav-btn" id="btn-gift" onclick="switchPage('gift')">My Gift</button>
+            <button class="nav-btn">Auction</button>
+            <button class="nav-btn">Lease</button>
+            <button class="nav-btn active" id="btn-market" onclick="switchPage('market')">Market</button>
+        </div>
+    </div>
+
+    <script>
+        // TonConnect
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://raw.githubusercontent.com/ton-connect/demo-dapp-with-react-ui/main/public/tonconnect-manifest.json',
+            buttonRootId: 'ton-connect-btn'
+        });
+
+        // ПЕРЕКЛЮЧЕНИЕ СТРАНИЦ
+        function switchPage(p) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('page-active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById('page-' + p).classList.add('page-active');
+            document.getElementById('btn-' + p).classList.add('active');
+        }
+
+        // МОДАЛКА
+        function openModal(t) {
+            document.getElementById('modalTitle').innerText = t;
+            document.getElementById('currencyModal').style.display = 'flex';
+        }
+        function closeModal() { document.getElementById('currencyModal').style.display = 'none'; }
+        function selectCur(c) { alert('Выбрано: ' + c); closeModal(); }
+
+        // ЗАГРУЗКА
+        window.onload = () => {
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.display = 'none';
+                document.getElementById('app-main').style.display = 'block';
+            }, 2500);
+        };
+    </script>
+</body>
+</html>
